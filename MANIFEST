@@ -1,0 +1,10 @@
+Changes
+Constructor.pm
+Makefile.PL
+MANIFEST
+README
+t/class_constructor.t
+t/lib/Subclass_Test/Subclass1.pm
+t/lib/Test/Harness.pm
+t/lib/Test/Simple.pm
+t/lib/Test/More.pm

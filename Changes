@@ -1,0 +1,21 @@
+Revision history for Perl extension Class::Constructor.
+
+1.0.0  Thu Nov 29, 2001
+    - minor doc change in Readme to note relationship with Class::Accessor
+    - added Class::Accessor as a prerequisite in Makefile.PL
+    - released to CPAN
+
+0.9.2  Mon Nov 19, 2001
+    - rewrote test script, removing dependency on Class::Accessor
+    - first public release
+
+0.9.1  Mon Nov 19, 2001
+    - Changed hardcoded path '/' separators into File::Spec->join()
+    - Included Test::Harness, Test::More and Test::Harness in t/lib
+    - minor doc changes
+
+0.9.0  Wed Oct 31, 2001
+    - converted into proper CPAN style distribution
+	- used h2xs 1.21 with options
+		-AX -n Class::Constructor
+

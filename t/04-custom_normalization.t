@@ -8,8 +8,8 @@ use File::Spec;
 use lib File::Spec->join('t', 'lib');
 use lib 'lib';
 
-use Test::More qw(no_plan);
-# use Test::More tests => 21;
+# use Test::More qw(no_plan);
+use Test::More tests => 12;
 
 BEGIN { use_ok('Class::Constructor'); }
 
@@ -19,6 +19,7 @@ use base qw/ Class::Constructor /;
 Test_Class->mk_constructor(
     Auto_Init              => [ qw/ foo BAR Baz / ],
     Method_Name_Normalizer => sub { "_method_" . (uc $_[0]) },
+    Param_Name_Normalizer  => sub { "_param_" . (lc $_[0]) },
     Class_Name_Normalizer  => sub { "_class_" . (uc $_[0])  },
 );
 
@@ -53,6 +54,7 @@ Subclass_Test->mk_constructor(
     Subclass_Param         => 'type',
     Auto_Init              => [ qw/ BAZ baM TypE / ],
     Method_Name_Normalizer => sub { "_method_" . (uc $_[0]) },
+    Param_Name_Normalizer  => sub { "_param_" . (lc $_[0]) },
     Class_Name_Normalizer  => sub { "_class_" . (uc $_[0])  },
 );
 
@@ -81,9 +83,9 @@ is($tc->_method_BAM,'no', 'subclass - non-subclassed object method 1');
 is($tc->_method_BAZ,'no', 'subclass - non-subclassed object method 2');
 
 $tc = Subclass_Test->create(
-    bAz  => 'testbaz',
-    bAm  => 'testbam',
-    TyPe => 'Subclass1',
+    bAz          => 'testbaz',
+    bAm          => 'testbam',
+    TyPe         => 'Subclass1',
 );
 
 $tc->set_bam;

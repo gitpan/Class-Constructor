@@ -1,5 +1,10 @@
 Revision history for Perl extension Class::Constructor.
 
+1.1.2  Fri Dec 19, 2003
+    - added an option to prevent Class::Constructor from converting
+      method names to lower case.  Thanks to Clayton Scott
+    - updated to include the latest Test::Simple
+
 1.1.1  Thu Dec 18, 2003
     - added an option to prevent Class::Constructor from converting
       method names to lower case.  Thanks to Dana Hudes <dhudes@hudes.org>

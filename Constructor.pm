@@ -8,7 +8,7 @@ use File::Spec;
 
 use vars qw($VERSION);
 
-$VERSION = '1.1.1';
+$VERSION = '1.1.2';
 
 =head1 NAME
 
@@ -161,12 +161,37 @@ following methods:
 Note that by default, C<Class::Constructor> converts names to lower
 case. See C<CASE SENSITIVITY>, below.
 
+=item Required_Params
+
+A list of params that must be passed to the constructor when the object
+is created.  If these items are not already listed as C<Auto_Init>
+methods, they will be added to the C<Auto_Init> list.
+
+    Fruit->mk_constructor(
+        Required_Params      => [ 'size', 'price' ],
+    );
+
+    package main;
+
+    use Fruit;
+    my $fruit = Fruit->new;  # error, missing size, price
+
+    my $fruit = Fruit->new(  # error: missing price
+        size   => 'big'
+    );
+
+    my $fruit = Fruit->new(  # okay
+        size   => 'big',
+        price  => 0.25,
+    );
+
+
 =item Disable_Case_Mangling
 
 Set this to a true value if you don't want Class::Constructor to force
 attribute names to lower case.  See C<CASE SENSITIVITY>, below.
 
-=item Method_Name_Normalizer
+=item Disable_Name_Normalizing
 
 Another name for C<Disable_Case_Mangling>, above.
 
@@ -179,6 +204,13 @@ attribute name.  See C<CASE SENSITIVITY>, below.
 
 Custom subroutine for converting a subtype class into a Perl class name.
 See C<CASE SENSITIVITY>, below.
+
+=item Param_Name_Normalizer
+
+Custom subroutine to be applied to params passed to the constructor in
+order to recognize special ones, such as those that are required by
+C<Required_Params> and the special C<Subclass_Param>.  See C<CASE
+SENSITIVITY>, below.
 
 =item Subclass_Param
 
@@ -302,31 +334,53 @@ This behaviour is also disabled via C<Disable_Case_Mangling>:
         Type => 'APPLE',
     );
 
+=head2 Advanced: Customizing Class, Method and Param normalization.
+
+Note that this is an advanced feature with limited use, so you can
+probably skip it.
+
 If you want to customize the way C<Class::Constructor> changes method
 names, you can pass subroutines to do the work:
 
     package Fruit;
     Fruit->mk_constructor(
         Subclass_Param         => 'Type',
-        Method_Name_Normalizer => sub { '_' . $_[0] }, # precede methods with underscore
-        Class_Name_Normalizer  => sub { uc $_[0] },    # class names to uppercase
+        Method_Name_Normalizer => sub { '_' . lc $_[0] }, # precede lc methods with underscore
+        Param_Name_Normalizer  => sub { uc $_[0] },       # params compared as upper case
+        Class_Name_Normalizer  => sub { uc $_[0] },       # class names to uppercase
+        Required_Params        => [ 'Size' ],
     );
 
     # the following creates a Fruit::APPLE
     my $apple = Fruit->new(
-        Type   => 'apple',
-        SiZE   => 'big',
-        colOUR => 'red',
+        Type            => 'apple',
+        SiZE            => 'big',
+        colOUR          => 'red',
     );
 
-    # and this is equivalent to:
+    # and the above is equivalent to:
     my $apple = Fruit->new(
-        Type   => 'apple',
+        type   => 'apple',
     );
 
     $apple->_SiZE('big');
     $apple->_colOUR('red');
 
+In the example above, the C<Method_Name_Normalizer> causes auto_init to
+make convert parameter names into method names as follows:
+
+    SiZE    => _size
+    colOUR  => _colour
+
+The C<Class_Name_Normalizer> converts the value of C<Type> (the
+C<Subclass_Param>) into method names as follows:
+
+    apple   => APPLE
+
+The C<Param_Name_Normalizer> converts param names to upper case before
+comparing them.  So C<Subclass_Param> is specified to be C<Type>, and is
+eventually passed as C<type>.  But since both are normalized to C<TYPE>,
+the match is found.
 
 =cut
 
@@ -334,9 +388,9 @@ sub mk_constructor {
     my $proto = shift;
     my $class = ref $proto || $proto;
 
-    my %args = @_;
+    my %params = @_;
 
-    my $constructor_name = $args{Name} || 'new';
+    my $constructor_name = $params{Name} || 'new';
 
     {
         no strict 'refs';
@@ -344,31 +398,51 @@ sub mk_constructor {
     }
 
     my $normalization    = 1;
-    undef $normalization if $args{Disable_Name_Normalization};
-    undef $normalization if $args{Disable_Case_Mangling};
+    undef $normalization if $params{Disable_Name_Normalization};
+    undef $normalization if $params{Disable_Case_Mangling};
 
-    my $method_name_normalize = $args{Method_Name_Normalizer} || sub { lc $_[0] };
-    my $class_name_normalize  = $args{Class_Name_Normalizer}  || sub { ucfirst lc $_[0] };
+    my $method_name_normalize = $params{Method_Name_Normalizer} || sub { lc $_[0] };
+    my $param_name_normalize  = $params{Param_Name_Normalizer}  || sub { lc $_[0] };
+    my $class_name_normalize  = $params{Class_Name_Normalizer}  || sub { ucfirst lc $_[0] };
 
-    my $subclass_param_name      = $normalization ? &$method_name_normalize($args{Subclass_Param})
-                                                  : $args{Subclass_Param};
+    my $subclass_param_name      = $normalization ? &$param_name_normalize($params{Subclass_Param})
+                                                  : $params{Subclass_Param};
 
 
-    my $dont_load_subclass_param = $args{Dont_Load_Subclass_Param};
+    my $dont_load_subclass_param = $params{Dont_Load_Subclass_Param};
 
-    foreach my $arg (qw/Auto_Init Init_Method Init_Methods/) {
-        next unless exists $args{$arg};
-        $args{$arg} = [ $args{$arg} ] unless ref $args{$arg} eq 'ARRAY';
+    foreach my $param (qw/Auto_Init Init_Method Init_Methods/) {
+        next unless exists $params{$param};
+        $params{$param} = [ $params{$param} ] unless ref $params{$param} eq 'ARRAY';
     }
 
     my @init_methods;
-    push @init_methods, @{ $args{'Init_Method'} }  if exists $args{'Init_Method'};
-    push @init_methods, @{ $args{'Init_Methods'} } if exists $args{'Init_Methods'};
+    push @init_methods, @{ $params{'Init_Method'} }  if exists $params{'Init_Method'};
+    push @init_methods, @{ $params{'Init_Methods'} } if exists $params{'Init_Methods'};
 
     my @auto_init;
-    push @auto_init, @{ $args{'Auto_Init'} } if exists $args{'Auto_Init'};
+    push @auto_init, @{ $params{'Auto_Init'} } if exists $params{'Auto_Init'};
+
+
+    my @required_params;
+    if (exists $params{'Required_Params'}) {
+        if ($normalization) {
+            push @required_params, map { &$param_name_normalize($_) } @{ $params{'Required_Params'} };
+        }
+        else {
+            push @required_params, @{ $params{'Required_Params'} };
+        }
+    }
 
     my %auto_init;
+
+    foreach my $param (@required_params) {
+        unless ($auto_init{$param}) {
+            push @auto_init, $param;
+            $auto_init{$param} = 1;
+        }
+    }
+
 
     if ($normalization) {
         %auto_init = map { &$method_name_normalize($_) => 1 } @auto_init;
@@ -381,39 +455,59 @@ sub mk_constructor {
         my $proto = shift;
         my $class = ref $proto || $proto;
 
-        my %args = @_;
+        my %params = @_;
         my $self = {};
+
+        my %normalized_params;
+
+        if ($normalization) {
+            %normalized_params = map { &$param_name_normalize($_) => $params{$_}} keys %params;
+        }
+        else {
+            %normalized_params = map { $_ => $params{$_} } keys %params;
+        }
 
         my $load_subclasses = 1;
 
         if (defined $dont_load_subclass_param) {
-            if (exists $args{$dont_load_subclass_param} and $args{$dont_load_subclass_param}) {
-                delete $args{$dont_load_subclass_param};
+            if (exists $params{$dont_load_subclass_param} and $params{$dont_load_subclass_param}) {
+                delete $params{$dont_load_subclass_param};
                 $load_subclasses = 0;
             }
         }
 
 
+        # Check for parameters flagged as required.  Throw an exception if
+        # there is one missing.
+
+        my @missing_required;
+        foreach my $required_param (@required_params) {
+            if ($normalization) {
+                next if exists $normalized_params{ &$param_name_normalize($required_param) };
+            }
+            else {
+                next if exists $params{ $required_param };
+            }
+            push @missing_required, $required_param;
+        }
+        if (@missing_required) {
+            die "$class: Missing required parameter(s): ". (join ', ', @missing_required). "\n";
+        }
+
         if ($subclass_param_name) {
 
-            my $subclass_param;
             my $subclass;
 
             if ($normalization) {
-                # subclass param is case insensitive, so we must do linear search
-                foreach my $arg (keys %args) {
-                    if (&$method_name_normalize($arg) eq $subclass_param_name) {
-                        $subclass_param = &$class_name_normalize($arg);
-                        $subclass       = &$class_name_normalize($args{$arg});
-                        last;
-                    }
+
+                if (exists $normalized_params{$subclass_param_name}) {
+                    $subclass       = &$class_name_normalize($normalized_params{$subclass_param_name});
                 }
             }
             else {
                 # subclass param is fixed
-                if (exists $args{$subclass_param_name}) {
-                    $subclass_param = $subclass_param_name;
-                    $subclass       = $args{$subclass_param};
+                if (exists $params{$subclass_param_name}) {
+                    $subclass       = $params{$subclass_param_name};
                 }
             }
 
@@ -432,10 +526,10 @@ sub mk_constructor {
 
         bless $self, $class;
 
-        foreach my $attr (keys %args) {
+        foreach my $attr (keys %params) {
             my $method = $normalization ? &$method_name_normalize($attr) : $attr;
             if ($auto_init{$method}) {
-                $self->$method($args{$attr});
+                $self->$method($params{$attr});
             }
             else {
                 unless (@init_methods) {

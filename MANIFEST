@@ -7,6 +7,9 @@ t/01-class_constructor.t
 t/02-default_normalization.t
 t/03-no_normalization.t
 t/04-custom_normalization.t
+t/05-required-params.t
+t/06-required-param-normalization.t
+t/07-required-params-no-autoinit.t
 t/lib/Subclass_Test/Subclass1.pm
 t/lib/Subclass_Test/_class_SUBCLASS1.pm
 t/lib/Test/Harness.pm

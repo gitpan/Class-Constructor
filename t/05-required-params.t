@@ -8,8 +8,8 @@ use File::Spec;
 use lib File::Spec->join('t', 'lib');
 use lib 'lib';
 
-use Test::More qw(no_plan);
-# use Test::More tests => 21;
+# use Test::More qw(no_plan);
+use Test::More tests => 19;
 
 BEGIN { use_ok('Class::Constructor'); }
 

@@ -8,7 +8,7 @@ use File::Spec;
 
 use vars qw($VERSION);
 
-$VERSION = '1.1.2';
+$VERSION = '1.1.3';
 
 =head1 NAME
 

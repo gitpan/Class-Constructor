@@ -1,5 +1,9 @@
 Revision history for Perl extension Class::Constructor.
 
+1.1.3  Tue Dec 23, 2003
+    - fixed tests to specify number of tests (no_plan requires newer
+      version of Test::Harness)
+
 1.1.2  Fri Dec 19, 2003
     - added an option to prevent Class::Constructor from converting
       method names to lower case.  Thanks to Clayton Scott

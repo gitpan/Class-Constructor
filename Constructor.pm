@@ -8,7 +8,7 @@ use File::Spec;
 
 use vars qw($VERSION);
 
-$VERSION = '1.0.0';
+$VERSION = '1.1.1';
 
 =head1 NAME
 
@@ -130,6 +130,56 @@ on all new objects that are created via the constructor.
                            # then $object->_startup()
 
 
+=item Auto_Init
+
+A list of attributes that should be automatically initialized via the
+parameters to the constructor.
+
+For each name/value pair passed to the constructor, the constructor
+will call the method named C<name> with the parameter of C<value>.
+
+For instance, if you make your constructor with:
+
+    Fruit->mk_constructor(
+        Auto_Init      => [ 'size', 'colour' ],
+    );
+
+And you call the constructor with:
+
+    use Fruit;
+    my $fruit = Fruit->new(
+        size   => 'big',
+        colour => 'red',
+    );
+
+Then, internally, the C<new> constructor will automatically call the
+following methods:
+
+    $fruit->size('big');
+    $fruit->colour('red');
+
+Note that by default, C<Class::Constructor> converts names to lower
+case. See C<CASE SENSITIVITY>, below.
+
+=item Disable_Case_Mangling
+
+Set this to a true value if you don't want Class::Constructor to force
+attribute names to lower case.  See C<CASE SENSITIVITY>, below.
+
+=item Method_Name_Normalizer
+
+Another name for C<Disable_Case_Mangling>, above.
+
+=item Method_Name_Normalizer
+
+Custom subroutine for converting a parameter passed to auto_init into a
+attribute name.  See C<CASE SENSITIVITY>, below.
+
+=item Class_Name_Normalizer
+
+Custom subroutine for converting a subtype class into a Perl class name.
+See C<CASE SENSITIVITY>, below.
+
 =item Subclass_Param
 
 You can cause the constructor to make instances of a subclass,
@@ -139,7 +189,7 @@ based on the a special parameter passed to the constructor:
     package Fruit;
     Fruit->mk_constructor(
         Name           => 'new',
-        Subclass_Param => 'type',
+        Subclass_Param => 'Type',
     );
 
     sub has_core { 0 };
@@ -189,43 +239,94 @@ For instance:
 Now when the C<$apple> object is created, the constructor makes no
 attempt to require the C<Fruit::Apple> module.
 
-=item Auto_Init
+=back
 
-A list of attributes that should be automatically initialized via the
-parameters to the constructor.
+=head1 CASE SENSITIVITY
 
-For each name/value pair passed to the constructor, the constructor
-will call the method named C<name> with the parameter of C<value>.
+By default, attribute names are forced to lower case and
+the case of C<Auto_Init> parameter names passed to the constructor
+doesn't matter.
 
-For instance, if you make your constructor with:
-
-    Fruit->mk_constructor(
-        Auto_Init      => [ 'size', 'colour' ],
-    );
-
-And you call the constructor with:
-
-    use Fruit;
-    my $fruit = Fruit->new(
-        Size   => 'big',
-        Colour => 'red',
-    );
-
-Then, internally, the C<new> constructor will automatically call the
-following methods:
-
-    $fruit->size('big');
-    $fruit->colour('red');
-
-Note that the case of the arguments passed to the constructor
-doesn't matter.  The following will also work:
+So the following call to a constructor:
 
     my $fruit = Fruit->new(
         SiZE   => 'big',
         colOUR => 'red',
     );
 
-=back
+Is actually equivalent to:
+
+    my $fruit = Fruit->new();
+    $fruit->size('big');
+    $fruit->colour('red');
+
+You can disable this behaviour by setting C<Disable_Case_Mangling>
+to a true value:
+
+    package Fruit;
+    Fruit->mk_constructor(
+        Disable_Case_Mangling => 1,
+    );
+
+Now the parameters are left unchanged:
+
+    my $fruit = Fruit->new(
+        SiZE   => 'big',
+        colOUR => 'red',
+    );
+
+    # equivalent to:
+    my $fruit = Fruit->new();
+    $fruit->SiZE('big');
+    $fruit->colOUR('red');
+
+
+Similarly for class names as passed via C<Subclass_Param>, they are
+converted to lower case and then the first letter is uppercased.
+
+    # the following creates a Fruit::Apple
+    my $apple = Fruit->new(
+        Type => 'APPLE',
+    );
+
+This behaviour is also disabled via C<Disable_Case_Mangling>:
+
+    package Fruit;
+    Fruit->mk_constructor(
+        Subclass_Param        => 'Type',
+        Disable_Case_Mangling => 1,
+    );
+
+    # the following creates a Fruit::APPLE
+    my $apple = Fruit->new(
+        Type => 'APPLE',
+    );
+
+If you want to customize the way C<Class::Constructor> changes method
+names, you can pass subroutines to do the work:
+
+    package Fruit;
+    Fruit->mk_constructor(
+        Subclass_Param         => 'Type',
+        Method_Name_Normalizer => sub { '_' . $_[0] }, # precede methods with underscore
+        Class_Name_Normalizer  => sub { uc $_[0] },    # class names to uppercase
+    );
+
+    # the following creates a Fruit::APPLE
+    my $apple = Fruit->new(
+        Type   => 'apple',
+        SiZE   => 'big',
+        colOUR => 'red',
+    );
+
+    # and this is equivalent to:
+    my $apple = Fruit->new(
+        Type   => 'apple',
+    );
+
+    $apple->_SiZE('big');
+    $apple->_colOUR('red');
+
 
 =cut
 
@@ -242,7 +343,17 @@ sub mk_constructor {
         return if defined &{"$class\:\:$constructor_name"};
     }
 
-    my $subclass_param           = $args{Subclass_Param};
+    my $normalization    = 1;
+    undef $normalization if $args{Disable_Name_Normalization};
+    undef $normalization if $args{Disable_Case_Mangling};
+
+    my $method_name_normalize = $args{Method_Name_Normalizer} || sub { lc $_[0] };
+    my $class_name_normalize  = $args{Class_Name_Normalizer}  || sub { ucfirst lc $_[0] };
+
+    my $subclass_param_name      = $normalization ? &$method_name_normalize($args{Subclass_Param})
+                                                  : $args{Subclass_Param};
+
+
     my $dont_load_subclass_param = $args{Dont_Load_Subclass_Param};
 
     foreach my $arg (qw/Auto_Init Init_Method Init_Methods/) {
@@ -256,7 +367,15 @@ sub mk_constructor {
 
     my @auto_init;
     push @auto_init, @{ $args{'Auto_Init'} } if exists $args{'Auto_Init'};
-    my %auto_init = map { lc($_) => 1 } @auto_init;
+
+    my %auto_init;
+
+    if ($normalization) {
+        %auto_init = map { &$method_name_normalize($_) => 1 } @auto_init;
+    }
+    else {
+        %auto_init = map { $_ => 1 } @auto_init;
+    }
 
     my $constructor = sub {
         my $proto = shift;
@@ -274,26 +393,47 @@ sub mk_constructor {
             }
         }
 
-        if ($subclass_param and exists $args{$subclass_param}) {
-            my $subclass = ucfirst(lc($args{$subclass_param}));
 
-            delete $args{$subclass_param} unless $auto_init{lc $subclass_param} or @init_methods;
+        if ($subclass_param_name) {
 
-            $class .= "::$subclass";
+            my $subclass_param;
+            my $subclass;
 
-            if ($load_subclasses) {
-                my @class_fn = split /::/, $class;
-                my $class_fn = File::Spec->join(split /::/, $class);
-                $class_fn   .= '.pm';
+            if ($normalization) {
+                # subclass param is case insensitive, so we must do linear search
+                foreach my $arg (keys %args) {
+                    if (&$method_name_normalize($arg) eq $subclass_param_name) {
+                        $subclass_param = &$class_name_normalize($arg);
+                        $subclass       = &$class_name_normalize($args{$arg});
+                        last;
+                    }
+                }
+            }
+            else {
+                # subclass param is fixed
+                if (exists $args{$subclass_param_name}) {
+                    $subclass_param = $subclass_param_name;
+                    $subclass       = $args{$subclass_param};
+                }
+            }
 
-                require $class_fn;
+            if ($subclass) {
+                $class .= "::$subclass";
+
+                if ($load_subclasses) {
+                    my @class_fn = split /::/, $class;
+                    my $class_fn = File::Spec->join(split /::/, $class);
+                    $class_fn   .= '.pm';
+
+                    require $class_fn;
+                }
             }
         }
 
         bless $self, $class;
 
         foreach my $attr (keys %args) {
-            my $method = lc $attr;
+            my $method = $normalization ? &$method_name_normalize($attr) : $attr;
             if ($auto_init{$method}) {
                 $self->$method($args{$attr});
             }
@@ -317,7 +457,6 @@ sub mk_constructor {
     }
     return 1;
 }
-
 
 1;
 

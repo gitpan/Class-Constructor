@@ -3,8 +3,13 @@ Constructor.pm
 Makefile.PL
 MANIFEST
 README
-t/class_constructor.t
+t/01-class_constructor.t
+t/02-default_normalization.t
+t/03-no_normalization.t
+t/04-custom_normalization.t
 t/lib/Subclass_Test/Subclass1.pm
+t/lib/Subclass_Test/_class_SUBCLASS1.pm
 t/lib/Test/Harness.pm
 t/lib/Test/Simple.pm
 t/lib/Test/More.pm
+META.yml                                 Module meta-data (added by MakeMaker)

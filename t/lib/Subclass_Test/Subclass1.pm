@@ -10,5 +10,10 @@ sub set_bam {
     $self->bam('yes');
 };
 
+sub set_Type {           # used in 03-no_normalization.t
+    my $self = shift;
+    $self->Type('yes');
+};
+
 
 1;

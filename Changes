@@ -1,5 +1,9 @@
 Revision history for Perl extension Class::Constructor.
 
+1.1.1  Thu Dec 18, 2003
+    - added an option to prevent Class::Constructor from converting
+      method names to lower case.  Thanks to Dana Hudes <dhudes@hudes.org>
+
 1.0.0  Thu Nov 29, 2001
     - minor doc change in Readme to note relationship with Class::Accessor
     - added Class::Accessor as a prerequisite in Makefile.PL

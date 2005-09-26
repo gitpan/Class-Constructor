@@ -10,6 +10,8 @@ t/04-custom_normalization.t
 t/05-required-params.t
 t/06-required-param-normalization.t
 t/07-required-params-no-autoinit.t
+t/pod.t
+t/pod-coverage.t
 t/lib/Subclass_Test/Subclass1.pm
 t/lib/Subclass_Test/_class_SUBCLASS1.pm
 t/lib/Test/Harness.pm
